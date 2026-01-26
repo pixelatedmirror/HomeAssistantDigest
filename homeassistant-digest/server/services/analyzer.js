@@ -520,6 +520,14 @@ The summary should be encouraging, like: "Welcome! Your smart home monitoring is
 ` : '';
 
     const prompt = `You are a smart home health analyst for Home Assistant. Analyze the provided data and return a JSON object.
+
+CRITICAL REQUIREMENTS:
+- Return STRICT JSON only
+- The JSON MUST match the provided structure
+- Return AT MOST 20 attention_items
+- If more issues exist, select the MOST IMPORTANT ones only
+- Do NOT include explanations outside JSON
+
 ${firstRunInstructions}
 ## Home Profile
 ${profile.occupants ? `- Occupants: ${JSON.stringify(profile.occupants)}` : '- Occupants: Not specified'}
