@@ -7,7 +7,7 @@ const { getBatteryPredictions } = require('./predictions');
 const { getDismissedWarnings } = require('../db/dismissed');
 const { getNotesForPrompt } = require('../db/notes');
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
 
 /**
  * Generate a daily digest using Gemini AI

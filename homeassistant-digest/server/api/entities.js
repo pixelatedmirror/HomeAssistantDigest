@@ -15,6 +15,8 @@ const {
     getTotalCounts,
     clearMonitoredEntities
 } = require('../db/entities');
+const { startScheduler } = require('../services/scheduler');
+
 
 // Domains to exclude by default (internal/system entities)
 const EXCLUDED_DOMAINS = [
@@ -139,6 +141,10 @@ router.post('/auto-configure', async (req, res) => {
         const stats = getTotalCounts();
         console.log(`[Auto-Configure] Saved ${entities.length} entities (${stats.monitored} monitored)`);
 
+        if (stats.monitored > 0) {
+            startScheduler();
+        }
+
         res.json({
             success: true,
             total: entities.length,
@@ -168,6 +174,11 @@ router.post('/save', async (req, res) => {
         setMonitoredEntities(entities);
 
         const stats = getTotalCounts();
+
+        if (stats.monitored > 0) {
+            startScheduler();
+        }
+
         res.json({
             success: true,
             saved: entities.length,

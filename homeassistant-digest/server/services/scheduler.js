@@ -4,6 +4,8 @@ const { generateDigest } = require('./analyzer');
 const { sendDigestNotification } = require('./notifier');
 const { markNotificationSent } = require('../db/digests');
 
+const { getConfig } = require('./homeassistant');
+
 let snapshotJob = null;
 let cleanupJob = null;
 let digestJob = null;
@@ -13,17 +15,30 @@ let isRunning = false;
 /**
  * Start the scheduler
  */
-function startScheduler() {
+async function startScheduler() {
     if (isRunning) {
         console.log('Scheduler already running');
         return;
+    }
+
+    // Fetch Home Assistant Timezone
+    let timeZone = 'UTC';
+    try {
+        const config = await getConfig();
+        if (config && config.time_zone) {
+            timeZone = config.time_zone;
+            process.env.TZ = timeZone;
+            console.log(`[Scheduler] Fetched timezone from Home Assistant and set process.env.TZ to: ${timeZone}`);
+        }
+    } catch (error) {
+        console.error('[Scheduler] Failed to fetch timezone from Home Assistant, defaulting to UTC:', error.message);
     }
 
     const snapshotInterval = parseInt(process.env.SNAPSHOT_INTERVAL_MINUTES) || 30;
     const digestTime = process.env.DIGEST_TIME || '07:00';
     const [digestHour, digestMinute] = digestTime.split(':').map(Number);
 
-    // Schedule snapshot collection (every N minutes)
+    // Schedule snapshot collection (every N minutes) - runs in UTC/system time as it's interval-based
     const snapshotCron = `*/${snapshotInterval} * * * *`;
     snapshotJob = cron.schedule(snapshotCron, async () => {
         console.log(`[Scheduler] Running snapshot collection...`);
@@ -37,7 +52,7 @@ function startScheduler() {
         }
     });
 
-    // Schedule daily cleanup at 3 AM
+    // Schedule daily cleanup at 3 AM local time
     cleanupJob = cron.schedule('0 3 * * *', async () => {
         console.log('[Scheduler] Running daily cleanup...');
         try {
@@ -48,7 +63,7 @@ function startScheduler() {
         }
     });
 
-    // Schedule daily digest generation
+    // Schedule daily digest generation at local time
     const digestCron = `${digestMinute} ${digestHour} * * *`;
     digestJob = cron.schedule(digestCron, async () => {
         console.log('[Scheduler] Generating daily digest...');
@@ -69,7 +84,7 @@ function startScheduler() {
         }
     });
 
-    // Schedule weekly digest on configurable day at the same time
+    // Schedule weekly digest on configurable day at local time
     const weeklyDay = process.env.WEEKLY_DIGEST_DAY || 'sunday';
     const dayMap = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
     const dayNum = dayMap[weeklyDay.toLowerCase()] ?? 0;
@@ -96,9 +111,9 @@ function startScheduler() {
     isRunning = true;
     console.log(`Scheduler started:`);
     console.log(`  - Snapshots: every ${snapshotInterval} minutes`);
-    console.log(`  - Daily digest: ${digestTime}`);
-    console.log(`  - Weekly digest: ${weeklyDay}s at ${digestTime}`);
-    console.log(`  - Cleanup: 3:00 AM`);
+    console.log(`  - Daily digest: ${digestTime} (Timezone TZ: ${timeZone})`);
+    console.log(`  - Weekly digest: ${weeklyDay}s at ${digestTime} (Timezone TZ: ${timeZone})`);
+    console.log(`  - Cleanup: 3:00 AM (Timezone TZ: ${timeZone})`);
 
     // Run initial collection after a short delay
     setTimeout(async () => {
